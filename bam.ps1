@@ -35,4 +35,21 @@ Get-ChildItem -Path $bamRoot -ErrorAction Stop | ForEach-Object {
         $utc       = Convert-FileTime $timeBytes
         $local     = $utc.ToLocalTime()
 
-        # Nombre del valor → ruta del EXE
+                # Nombre del valor → ruta del EXE (puede venir en UTF‑16)
+        $exePath = try   { [System.Text.Encoding]::Unicode.GetString([byte[]]$property.Name) }
+                   catch { $property.Name }
+
+        # Firma digital
+        $sigResult = if (Test-Path $exePath) {
+            (Get-AuthenticodeSignature -FilePath $exePath).Status
+        } else { 'Ruta no encontrada' }
+
+        [PSCustomObject]@{
+            Application = [IO.Path]::GetFileName($exePath)
+            Path        = $exePath
+            TimeUTC     = $utc.ToString('yyyy-MM-dd HH:mm:ss')
+            TimeLocal   = $local.ToString('yyyy-MM-dd HH:mm:ss')
+            Signature   = $sigResult
+        }
+    }
+} | Sort-Object TimeUTC -Descending | Format-Table -AutoSize
